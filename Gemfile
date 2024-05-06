@@ -31,6 +31,7 @@ gem "jbuilder"
 
 gem 'selenium-webdriver'
 gem 'webdrivers'
+gem 'csv'
 
 # Use Redis adapter to run Action Cable in production
 # gem "redis", "~> 4.0"
@@ -41,12 +42,16 @@ gem 'webdrivers'
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"
 
+gem 'capistrano', '~> 3.16.0'
+gem 'capistrano-rails'
+
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ mingw mswin x64_mingw jruby ]
 
 # Reduces boot times through caching; required in config/boot.rb
 gem "bootsnap", require: false
 
+gem 'aws-sdk-s3'
 # Use Sass to process CSS
 # gem "sassc-rails"
 

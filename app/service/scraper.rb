@@ -2,12 +2,62 @@ require 'selenium-webdriver'
 require 'open-uri'
 
 class Scraper
+  BRAND_URLS = {
+    bottega_veneta_men:  "https://www.gebnegozionline.com/en_jp/men/designers/bottega-veneta.html",
+    bottega_veneta_women:  "https://www.gebnegozionline.com/en_jp/women/designers/bottega-veneta.html",
+    givenchy_men:  "https://www.gebnegozionline.com/en_jp/men/designers/givenchy.html",
+    givenchy_women:  "https://www.gebnegozionline.com/en_jp/women/designers/givenchy.html",
+
+    prada_men: "https://www.gebnegozionline.com/en_jp/men/designers/prada.html",
+    prada_women: "https://www.gebnegozionline.com/en_jp/women/designers/prada.html",
+    loewe_men: "https://www.gebnegozionline.com/en_jp/men/designers/loewe.html",
+    loewe_women: "https://www.gebnegozionline.com/en_jp/catalogsearch/result/?q=Loewe",
+    burberry_men: "https://www.gebnegozionline.com/en_jp/men/designers/burberry.html",
+    burberry_women: "https://www.gebnegozionline.com/en_jp/women/designers/burberry.html",
+    fendi_men: "https://www.gebnegozionline.com/en_jp/men/designers/fendi.html",
+    fendi_women: "https://www.gebnegozionline.com/en_jp/women/designers/fendi.html",
+    balenciage_men:  "https://www.gebnegozionline.com/en_jp/men/designers/balenciaga.html",
+    balenciage_women:  "https://www.gebnegozionline.com/en_jp/women/designers/balenciaga.html",
+    margiela_men:  "https://www.gebnegozionline.com/en_jp/men/designers/maison-margiela.html",
+    margiela_women:  "https://www.gebnegozionline.com/en_jp/women/designers/maison-margiela.html",
+    moncler_men:  "https://www.gebnegozionline.com/en_jp/men/designers/moncler.html",
+    moncler_women:  "https://www.gebnegozionline.com/en_jp/women/designers/moncler.html",
+    versace_men:  "https://www.gebnegozionline.com/en_jp/men/designers/versace.html",
+    versace_women:  "https://www.gebnegozionline.com/en_jp/women/designers/versace.html",
+
+
+  }.freeze
 
   def initialize
     options = Selenium::WebDriver::Chrome::Options.new
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     @driver = Selenium::WebDriver.for(:chrome, options: options)
+  end
+
+  def scrape_new_products(list_url)
+    all_items = []
+    product_urls = fetch_all_product_details_urls(list_url)
+    product_urls.each do |product_url|
+      unless item_exists?(product_url)
+        all_items.concat(create_products_from_url(product_url))
+      else
+        puts "#{product_url}はすでに存在します。スキップします。"
+      end
+    end
+    all_items
+  end
+
+  def scrape_all_new_brands
+    all_brands_urls_list.each do |brand, url_list|
+      scrape_new_products(url_list)
+    end
+  end
+
+  def scrape_all_brands
+    all_brands_urls_list.each do |brand, url_list|
+      scrape_all_products(url_list)
+    end
   end
 
   def scrape_all_products(list_url)
@@ -22,20 +72,21 @@ class Scraper
   def create_products_from_url(product_url)
     items = []
     move_to_product_details_page(product_url)
-    product_info = extract_product_info
-    item = create_product(product_info)
-    items << item
+    if page_exists?
+      product_info = extract_product_info
+      item = create_product(product_info)
+      items << item
 
-    if has_other_colors?
-      other_color_urls = fetch_other_color_urls
-      other_color_urls.each do |color_url|
-        move_to_product_details_page(color_url)
-        product_info = extract_product_info
-        item = create_product(product_info)
-        items << item
+      if has_other_colors?
+        other_color_urls = fetch_other_color_urls
+        other_color_urls.each do |color_url|
+          move_to_product_details_page(color_url)
+          product_info = extract_product_info
+          item = create_product(product_info)
+          items << item
+        end
       end
     end
-
     items
   end
 
@@ -54,6 +105,18 @@ class Scraper
   end
 
   private
+
+  def page_exists?
+    @driver.find_elements(css: ".product-title-name").present?
+  end
+
+  def item_exists?(product_url)
+    Item.exists?(url: product_url)
+  end
+
+  def all_brands_urls_list
+    BRAND_URLS
+  end
 
   def move_to_product_details_page(product_url)
     @driver.get(product_url)
