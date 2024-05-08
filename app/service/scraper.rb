@@ -3,6 +3,10 @@ require 'open-uri'
 
 class Scraper
   BRAND_URLS = {
+    moncler_men:  "https://www.gebnegozionline.com/en_jp/men/designers/moncler.html",
+    moncler_women:  "https://www.gebnegozionline.com/en_jp/women/designers/moncler.html",
+    versace_men:  "https://www.gebnegozionline.com/en_jp/men/designers/versace.html",
+    versace_women:  "https://www.gebnegozionline.com/en_jp/women/designers/versace.html",
     bottega_veneta_men:  "https://www.gebnegozionline.com/en_jp/men/designers/bottega-veneta.html",
     bottega_veneta_women:  "https://www.gebnegozionline.com/en_jp/women/designers/bottega-veneta.html",
     givenchy_men:  "https://www.gebnegozionline.com/en_jp/men/designers/givenchy.html",
@@ -20,10 +24,6 @@ class Scraper
     balenciage_women:  "https://www.gebnegozionline.com/en_jp/women/designers/balenciaga.html",
     margiela_men:  "https://www.gebnegozionline.com/en_jp/men/designers/maison-margiela.html",
     margiela_women:  "https://www.gebnegozionline.com/en_jp/women/designers/maison-margiela.html",
-    moncler_men:  "https://www.gebnegozionline.com/en_jp/men/designers/moncler.html",
-    moncler_women:  "https://www.gebnegozionline.com/en_jp/women/designers/moncler.html",
-    versace_men:  "https://www.gebnegozionline.com/en_jp/men/designers/versace.html",
-    versace_women:  "https://www.gebnegozionline.com/en_jp/women/designers/versace.html",
 
 
   }.freeze
@@ -33,6 +33,18 @@ class Scraper
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     @driver = Selenium::WebDriver.for(:chrome, options: options)
+  end
+
+  def update_images
+    items = Item.where(original_image_url: [])
+    items.each do |item|
+      url = item.url
+      @driver.get(url)
+      original_image_url = @driver.find_elements(css: ".product__gallery__img").map do |e|
+        e.attribute("src")
+      end
+      item.update(original_image_url: original_image_url)
+    end
   end
 
   def scrape_new_products(list_url)
@@ -132,9 +144,16 @@ class Scraper
       title: "#{brand} | #{product_name}",
       description: description,
       size: size,
-      images: images
+      images: images,
+      original_image_url: original_image_url
     }
     parameter
+  end
+
+  def original_image_url
+    @driver.find_elements(css: ".product__gallery__img").map do |e|
+      e.attribute("src")
+    end
   end
 
   def fetch_all_product_details_urls(list_url)
@@ -177,11 +196,6 @@ class Scraper
   def product_name
     @driver.find_elements(css: ".page-title-wrapper.designer").first.text
   end
-
-  # def price
-  #   price_text = @driver.find_elements(css: ".price")&.first&.text
-  #   price_text&.delete("^0-9").to_i || 0
-  # end
 
   def price
     price_text = @driver.find_elements(css: ".price")&.first&.text
