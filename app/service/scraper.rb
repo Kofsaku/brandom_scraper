@@ -3,6 +3,10 @@ require 'open-uri'
 
 class Scraper
   BRAND_URLS = {
+    moncler_men:  "https://www.gebnegozionline.com/en_jp/men/designers/moncler.html",
+    moncler_women:  "https://www.gebnegozionline.com/en_jp/women/designers/moncler.html",
+    versace_men:  "https://www.gebnegozionline.com/en_jp/men/designers/versace.html",
+    versace_women:  "https://www.gebnegozionline.com/en_jp/women/designers/versace.html",
     bottega_veneta_men:  "https://www.gebnegozionline.com/en_jp/men/designers/bottega-veneta.html",
     bottega_veneta_women:  "https://www.gebnegozionline.com/en_jp/women/designers/bottega-veneta.html",
     givenchy_men:  "https://www.gebnegozionline.com/en_jp/men/designers/givenchy.html",
@@ -20,11 +24,6 @@ class Scraper
     balenciage_women:  "https://www.gebnegozionline.com/en_jp/women/designers/balenciaga.html",
     margiela_men:  "https://www.gebnegozionline.com/en_jp/men/designers/maison-margiela.html",
     margiela_women:  "https://www.gebnegozionline.com/en_jp/women/designers/maison-margiela.html",
-    moncler_men:  "https://www.gebnegozionline.com/en_jp/men/designers/moncler.html",
-    moncler_women:  "https://www.gebnegozionline.com/en_jp/women/designers/moncler.html",
-    versace_men:  "https://www.gebnegozionline.com/en_jp/men/designers/versace.html",
-    versace_women:  "https://www.gebnegozionline.com/en_jp/women/designers/versace.html",
-
 
   }.freeze
 
@@ -35,15 +34,29 @@ class Scraper
     @driver = Selenium::WebDriver.for(:chrome, options: options)
   end
 
+  def update_images
+    items = Item.where(original_image_url: [])
+    items.each do |item|
+      url = item.url
+      @driver.get(url)
+      original_image_url = @driver.find_elements(css: ".product__gallery__img").map do |e|
+        e.attribute("src")
+      end
+      item.update(original_image_url: original_image_url)
+    end
+  end
+
   def scrape_new_products(list_url)
     all_items = []
     product_urls = fetch_all_product_details_urls(list_url)
     product_urls.each do |product_url|
-      unless item_exists?(product_url)
+      # unless item_exists?(product_url)
+      if target?(product_url)
         all_items.concat(create_products_from_url(product_url))
-      else
-        puts "#{product_url}はすでに存在します。スキップします。"
       end
+      # else
+      #   puts "#{product_url}はすでに存在します。スキップします。"
+      # end
     end
     all_items
   end
@@ -106,6 +119,11 @@ class Scraper
 
   private
 
+  def target?(url)
+    item = Item.find_by_url(url)
+    !item || item.updated_at <= 3.days.ago
+  end
+
   def page_exists?
     @driver.find_elements(css: ".product-title-name").present?
   end
@@ -132,9 +150,18 @@ class Scraper
       title: "#{brand} | #{product_name}",
       description: description,
       size: size,
-      images: images
+      images: images,
+      original_image_url: original_image_url,
+      code: code,
+      gender: gender
     }
     parameter
+  end
+
+  def original_image_url
+    @driver.find_elements(css: ".product__gallery__img").map do |e|
+      e.attribute("src")
+    end
   end
 
   def fetch_all_product_details_urls(list_url)
@@ -170,18 +197,21 @@ class Scraper
     end.drop(1)
   end
 
+  def gender
+    if @driver.find_elements(css: ".informations a.link").last.attribute('href').include?("women")
+      "women"
+    else
+      "men"
+    end
+  end
+
   def brand
     @driver.find_elements(css: ".product-title-name")&.first&.text
   end
 
   def product_name
-    @driver.find_elements(css: ".page-title-wrapper.designer").first.text
+    @driver.find_elements(css: ".page-title-wrapper.designer")&.first&.text
   end
-
-  # def price
-  #   price_text = @driver.find_elements(css: ".price")&.first&.text
-  #   price_text&.delete("^0-9").to_i || 0
-  # end
 
   def price
     price_text = @driver.find_elements(css: ".price")&.first&.text
@@ -195,13 +225,16 @@ class Scraper
                     .map(&:text)
   end
 
-
   def description
     @driver.find_element(css: ".product-info-detailed-description.small-12.mage-accordion-disabled").text
   end
 
   def url
     @driver.current_url
+  end
+
+  def code
+    @driver.find_element(class: 'product-code')&.text
   end
 
   def images
