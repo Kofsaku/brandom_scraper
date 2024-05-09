@@ -19,7 +19,7 @@ class Item < ApplicationRecord
     CSV.generate(headers: true) do |csv|
       csv << CSV_PRODUCT_TEMPLATE_HEADERS
 
-      last(10).each do |item|
+      Item.all.each do |item|
         max_rows = [item.size.count, item.images.count].max
 
         max_rows.times do |index|
@@ -32,6 +32,7 @@ class Item < ApplicationRecord
             row[3] = item.brand
             # row[4] = 'Apparel & Accessories > Clothing'
             # row[5] = 'Shirts'
+            row[6] = "#{item.brand}, #{item.url}, #{item.gender}, #{item.code}"
             row[7] = 'TRUE'
             row[8] = 'サイズ'
             row[9] = item.size[index] if item.size[index]
